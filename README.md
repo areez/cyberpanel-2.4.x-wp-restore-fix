@@ -137,8 +137,8 @@ Execution logs are stored in:
 
 **Areez Afsar Khan**  
 *Entrepreneur, DevOps Practitioner & Founder of Valiant Technologies*
-[https://valiant.com.bd](https://valiant.com.bd) | [https://areezafsar.com](https://areezafsar.com) | [hello@areezafsar.com](mailto:hello@areezafsar.com) | [connect@wervaliant.com](mailto:connect@wervaliant.com)
 
+[https://valiant.com.bd](https://valiant.com.bd) | [https://areezafsar.com](https://areezafsar.com) | [hello@areezafsar.com](mailto:hello@areezafsar.com) | [connect@wervaliant.com](mailto:connect@wervaliant.com) | [GitHub](https://github.com/areez)
 
 ## Disclaimer
 This project is **free to use, modify, and distribute**.
