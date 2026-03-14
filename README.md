@@ -1,42 +1,33 @@
 # CyberPanel WordPress Restore Fix
 
-![License](https://img.shields.io/github/license/areez/cyberpanel-245-wp-restore-fix)
-![Stars](https://img.shields.io/github/stars/areez/cyberpanel-245-wp-restore-fix)
-![Issues](https://img.shields.io/github/issues/areez/cyberpanel-245-wp-restore-fix)
+![License](https://img.shields.io/github/license/areez/cyberpanel-2.4.x-wp-restore-fix)
+![Stars](https://img.shields.io/github/stars/areez/cyberpanel-2.4.x-wp-restore-fix)
+![Issues](https://img.shields.io/github/issues/areez/cyberpanel-2.4.x-wp-restore-fix)
 ![Bash](https://img.shields.io/badge/bash-compatible-green)
 ![CyberPanel](https://img.shields.io/badge/CyberPanel-2.4.x-blue)
 ![OpenLiteSpeed](https://img.shields.io/badge/OpenLiteSpeed-supported-orange)
 ![WordPress](https://img.shields.io/badge/WordPress-supported-blue)
 
-A utility script to fix **WordPress restore permission issues on
-CyberPanel servers** running OpenLiteSpeed.
+A utility script to fix **WordPress restore permission issues on CyberPanel servers** running OpenLiteSpeed.
 
-> Fixes the issue discussed here:\
-> https://github.com/usmannasir/cyberpanel/issues/1735
+> Fixes the original issue discussed here:  
+> <https://github.com/usmannasir/cyberpanel/issues/1735>
+
+---
 
 ## Overview
 
-When WordPress sites are restored from backups on CyberPanel servers,
-file ownership and permissions may become inconsistent. This can lead
-to:
+When WordPress sites are restored from backups on CyberPanel servers, file ownership and permissions may become inconsistent. This can lead to:
 
--   WordPress asking for **FTP credentials**
--   Plugins/themes failing to install
--   Media uploads failing
--   LiteSpeed Cache initialization errors
--   Object cache issues
+- WordPress asking for **FTP credentials**
+- Plugins/themes failing to install
+- Media uploads failing
+- LiteSpeed Cache initialization errors
+- Object cache issues
 
-This script automates the process of fixing those problems safely.
+This project automates the process of fixing those problems safely.
 
-------------------------------------------------------------------------
-
-## One Command Run
-
-For quick execution:
-
-    curl -sSL https://raw.githubusercontent.com/areez/cyberpanel-245-wp-restore-fix/main/scripts/fix-cyberpanel-wp-restore.sh | sudo bash
-
-------------------------------------------------------------------------
+---
 
 ## Workflow
 
@@ -44,101 +35,175 @@ For quick execution:
 
 Process:
 
-1.  Scan `/home/*` for CyberPanel domains
-2.  List sites in numbered format
-3.  User selects target sites
-4.  Fix ownership
-5.  Fix permissions
-6.  Backup `wp-config.php`
-7.  Clear LiteSpeed cache artifacts
-8.  Restart OpenLiteSpeed
-9.  Print summary report
+1. Scan `/home/*` for CyberPanel domains
+2. List sites in numbered format
+3. Let the user choose targets
+4. Fix ownership
+5. Fix permissions
+6. Backup `wp-config.php`
+7. Clear LiteSpeed cache artifacts
+8. Restart OpenLiteSpeed
+9. Print a summary report
+
+---
 
 ## Features
 
--   Safe **ownership repair**
--   Automatic **permission correction**
--   **wp-config backup** before modification
--   **Dry run mode**
--   **Interactive site selection**
--   **Multi-site support**
--   **Rollback script included**
--   Works with **100+ domains**
--   **Verbose logging**
--   **Summary report at completion**
+- Safe ownership repair
+- Automatic permission correction
+- `wp-config.php` backup before modification
+- Dry-run mode
+- Interactive site selection
+- Multi-site support
+- Rollback script included
+- Works with large multi-site servers
+- Verbose logging and state tracking
+- Summary report at completion
+
+---
+
+## Screenshots
+
+### Site discovery
+![Discovery](docs/scan.png)
+
+### Processing site
+![Processing](docs/processing.png)
+
+### Cache cleanup
+![Cache](docs/cache.png)
+
+### Restarting OpenLiteSpeed
+![Restart](docs/restart.png)
+
+### Final summary
+![Summary](docs/summary.png)
+
+---
 
 ## Installation
 
 Clone the repository:
 
-    git clone https://github.com/areez/cyberpanel-245-wp-restore-fix.git
-    cd cyberpanel-245-wp-restore-fix
-    chmod +x scripts/*.sh
+```bash
+git clone https://github.com/areez/cyberpanel-2.4.x-wp-restore-fix.git
+cd cyberpanel-2.4.x-wp-restore-fix
+chmod +x scripts/*.sh
+```
+
+---
 
 ## Usage
 
 Run the script:
 
-    sudo ./scripts/fix-cyberpanel-wp-restore.sh
+```bash
+sudo bash ./scripts/fix-cyberpanel-wp-restore.sh
+```
 
-The script will:
+If you want to use the executable bit and shebang directly:
 
-1.  Detect all CyberPanel domains
-2.  Show a numbered list
-3.  Allow you to choose which sites to process
+```bash
+sudo chmod +x ./scripts/fix-cyberpanel-wp-restore.sh
+sudo ./scripts/fix-cyberpanel-wp-restore.sh
+```
+
+---
 
 ## Dry Run Mode
 
-Preview actions without applying changes:
+```bash
+DRY_RUN=1 sudo bash ./scripts/fix-cyberpanel-wp-restore.sh
+```
 
-    DRY_RUN=1 sudo ./scripts/fix-cyberpanel-wp-restore.sh
+---
 
 ## Run for One Domain
 
-    DOMAIN=example.com sudo ./scripts/fix-cyberpanel-wp-restore.sh
+```bash
+DOMAIN=example.com sudo bash ./scripts/fix-cyberpanel-wp-restore.sh
+```
+
+---
+
+## CLI Examples
+
+Run non-interactively for all sites:
+
+```bash
+sudo bash ./scripts/fix-cyberpanel-wp-restore.sh --yes
+```
+
+Run only selected site numbers:
+
+```bash
+sudo bash ./scripts/fix-cyberpanel-wp-restore.sh --yes --sites 1,2,5
+```
+
+Run all except selected site numbers:
+
+```bash
+sudo bash ./scripts/fix-cyberpanel-wp-restore.sh --yes --exclude 3,4
+```
+
+---
 
 ## Rollback
 
 If you need to revert `wp-config.php` changes:
 
-    sudo ./scripts/restore-wp-config-backups.sh
+```bash
+sudo bash ./scripts/restore-wp-config-backups.sh
+```
+
+---
 
 ## Logs
 
 Execution logs are stored in:
 
-    /var/log/cyberpanel-wp-restore-fix-*.log
+```bash
+/var/log/cyberpanel-wp-restore-fix-*.log
+```
+
+State files are stored in:
+
+```bash
+/var/log/cyberpanel-wp-restore-fix-*.state
+```
+
+---
 
 ## Warning
 
--   Run this script **as root**
--   Always test on **one domain first** if running on production servers
--   The rollback script restores **only wp-config.php**
+- Run this script **as root**
+- Always test on **one domain first** if running on production servers
+- The rollback script restores **only `wp-config.php`**
+- If the script is interrupted, re-run for the affected site only with `DOMAIN=...`
 
-## Screenshots
+---
 
-### Processing site
+## Compatibility Note
 
-![Processing](docs/processing.png)
+This script uses **Bash-specific syntax**. If your system defaults `/bin/sh` to `dash`, run the scripts with `bash`:
 
-### Cache cleanup
+```bash
+sudo bash ./scripts/fix-cyberpanel-wp-restore.sh
+```
 
-![Cache](docs/cache.png)
-
-### Restarting OpenLiteSpeed
-
-![Restart](docs/restart.png)
-
-### Final summary
-
-![Summary](docs/summary.png)
+---
 
 ## Author
 
 **Areez Afsar Khan**  
-*Entrepreneur, DevOps Practitioner & Founder of [Valiant Technologies](https://valiant.com.bd)*
+*Entrepreneur, DevOps Practitioner & Founder of Valiant Technologies*
 
-[About Me](https://areezafsar.com) | [Email](mailto:hello@areezafsar.com) | [GitHub](https://github.com/areez) | [LinkedIn](https://www.linkedin.com/in/areezafsar/)
+[https://valiant.com.bd](https://valiant.com.bd) | [https://areezafsar.com](https://areezafsar.com) | [hello@areezafsar.com](mailto:hello@areezafsar.com) | [connect@wervaliant.com](mailto:connect@wervaliant.com)
 
-## Disclaimer
+---
+
+## License
+
+MIT License
+
 This project is **free to use, modify, and distribute**.

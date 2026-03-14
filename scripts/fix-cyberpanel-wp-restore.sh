@@ -1,5 +1,10 @@
-\
 #!/usr/bin/env bash
+
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "This script must be run with bash."
+  echo "Run: sudo bash ./scripts/fix-cyberpanel-wp-restore.sh"
+  exit 1
+fi
 
 set -u
 umask 022
@@ -53,51 +58,24 @@ Options:
   --sites LIST       Run only the listed site numbers
   --exclude LIST     Exclude the listed site numbers
   --help             Show this help
-
-Examples:
-  ./scripts/fix-cyberpanel-wp-restore.sh
-  DRY_RUN=1 ./scripts/fix-cyberpanel-wp-restore.sh
-  DOMAIN=example.com ./scripts/fix-cyberpanel-wp-restore.sh
-  ./scripts/fix-cyberpanel-wp-restore.sh --yes --sites 1,2,5
-  ./scripts/fix-cyberpanel-wp-restore.sh --yes --exclude 3,4
 EOF
 }
 
 parse_args() {
   while [ $# -gt 0 ]; do
     case "$1" in
-      --yes)
-        AUTO_YES=1
-        shift
-        ;;
-      --sites)
-        [ $# -ge 2 ] || { echo "--sites requires a value"; exit 1; }
-        CLI_SITES="$2"
-        shift 2
-        ;;
-      --exclude)
-        [ $# -ge 2 ] || { echo "--exclude requires a value"; exit 1; }
-        CLI_EXCLUDE="$2"
-        shift 2
-        ;;
-      --help|-h)
-        usage
-        exit 0
-        ;;
-      *)
-        echo "Unknown option: $1"
-        usage
-        exit 1
-        ;;
+      --yes) AUTO_YES=1; shift ;;
+      --sites) [ $# -ge 2 ] || { echo "--sites requires a value"; exit 1; }; CLI_SITES="$2"; shift 2 ;;
+      --exclude) [ $# -ge 2 ] || { echo "--exclude requires a value"; exit 1; }; CLI_EXCLUDE="$2"; shift 2 ;;
+      --help|-h) usage; exit 0 ;;
+      *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
   done
 }
 
 log() {
-  local level="$1"
-  shift
-  local msg="$*"
-  local color=""
+  local level="$1"; shift
+  local msg="$*"; local color=""
   case "$level" in
     INFO) color="$C_BLUE" ;;
     OK) color="$C_GREEN" ;;
@@ -112,14 +90,26 @@ update_state() {
   printf 'timestamp=%s\ncurrent_site=%s\ncurrent_step=%s\n' "$timestamp" "$CURRENT_SITE" "$CURRENT_STEP" > "$STATE_FILE"
 }
 
+print_summary() {
+  echo
+  echo "==================== Summary ===================="
+  printf 'Successful: %d\n' "${#SUCCESS_SITES[@]}"
+  local item
+  for item in "${SUCCESS_SITES[@]:-}"; do [ -n "$item" ] && printf '  + %s\n' "$item"; done
+  printf '\nSkipped: %d\n' "${#SKIPPED_SITES[@]}"
+  for item in "${SKIPPED_SITES[@]:-}"; do [ -n "$item" ] && printf '  - %s\n' "$item"; done
+  printf '\nFailed: %d\n' "${#FAILED_SITES[@]}"
+  for item in "${FAILED_SITES[@]:-}"; do [ -n "$item" ] && printf '  ! %s\n' "$item"; done
+  echo "================================================="
+  echo
+}
+
 on_interrupt() {
   CURRENT_STEP="interrupted"
   update_state
   log "WARN" "Script interrupted before completion."
   log "WARN" "Review: $LOG_FILE"
   log "WARN" "State : $STATE_FILE"
-  log "WARN" "If needed, re-run only the affected domain using:"
-  log "WARN" "DOMAIN=<domain> ./scripts/fix-cyberpanel-wp-restore.sh"
   print_summary
   exit 130
 }
@@ -134,8 +124,7 @@ need_root() {
 }
 
 run_cmd() {
-  local description="$1"
-  shift
+  local description="$1"; shift
   CURRENT_STEP="$description"
   update_state
   log "INFO" "$description"
@@ -160,7 +149,6 @@ scan_sites() {
     SITE_PATHS+=("$d")
     SITE_NAMES+=("$(basename "$d")")
   done
-
   if [ "${#SITE_PATHS[@]}" -eq 0 ]; then
     log "ERROR" "No sites found under /home/*/public_html"
     exit 1
@@ -191,9 +179,7 @@ parse_number_list() {
 build_targets_all() {
   TARGET_INDEXES=()
   local i
-  for ((i=0; i<${#SITE_NAMES[@]}; i++)); do
-    TARGET_INDEXES+=("$i")
-  done
+  for ((i=0; i<${#SITE_NAMES[@]}; i++)); do TARGET_INDEXES+=("$i"); done
 }
 
 build_targets_only() {
@@ -205,9 +191,7 @@ build_targets_only() {
     idx=$((n-1))
     if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#SITE_NAMES[@]}" ]; then
       seen=0
-      for existing in "${TARGET_INDEXES[@]:-}"; do
-        [ "$existing" = "$idx" ] && seen=1 && break
-      done
+      for existing in "${TARGET_INDEXES[@]:-}"; do [ "$existing" = "$idx" ] && seen=1 && break; done
       [ "$seen" -eq 0 ] && TARGET_INDEXES+=("$idx")
     fi
   done < <(parse_number_list "$raw")
@@ -221,14 +205,9 @@ build_targets_excluding() {
   while IFS= read -r n; do
     [ -n "$n" ] || continue
     idx=$((n-1))
-    if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#SITE_NAMES[@]}" ]; then
-      excluded["$idx"]=1
-    fi
+    if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#SITE_NAMES[@]}" ]; then excluded["$idx"]=1; fi
   done < <(parse_number_list "$raw")
-
-  for ((i=0; i<${#SITE_NAMES[@]}; i++)); do
-    [ -n "${excluded[$i]+x}" ] || TARGET_INDEXES+=("$i")
-  done
+  for ((i=0; i<${#SITE_NAMES[@]}; i++)); do [ -n "${excluded[$i]+x}" ] || TARGET_INDEXES+=("$i"); done
 }
 
 print_target_summary() {
@@ -236,9 +215,7 @@ print_target_summary() {
   echo "Target sites:"
   echo "-------------"
   local idx
-  for idx in "${TARGET_INDEXES[@]}"; do
-    printf ' - %s\n' "${SITE_NAMES[$idx]}"
-  done
+  for idx in "${TARGET_INDEXES[@]}"; do printf ' - %s\n' "${SITE_NAMES[$idx]}"; done
   echo
   printf 'Total target sites: %d\n' "${#TARGET_INDEXES[@]}"
   echo
@@ -251,10 +228,7 @@ confirm_or_exit() {
   fi
   local answer=""
   read -r -p "Continue? Type yes to proceed: " answer
-  if [ "$answer" != "yes" ]; then
-    log "WARN" "Aborted by user before execution."
-    exit 0
-  fi
+  [ "$answer" = "yes" ] || { log "WARN" "Aborted by user before execution."; exit 0; }
 }
 
 backup_wp_config() {
@@ -264,15 +238,11 @@ backup_wp_config() {
 }
 
 insert_if_missing() {
-  local file="$1"
-  local needle="$2"
-  local line="$3"
-
+  local file="$1" needle="$2" line="$3"
   if grep -Fq "$needle" "$file"; then
     log "INFO" "Already present in $(basename "$file"): $needle"
     return 0
   fi
-
   if grep -Fq "/* That's all, stop editing! Happy publishing. */" "$file"; then
     run_cmd "Inserting missing constant into $(basename "$file")" sed -i "/\/\* That's all, stop editing! Happy publishing. \*\//i $line" "$file" || return 1
   elif grep -Fq "/* That's all, stop editing! */" "$file"; then
@@ -290,29 +260,16 @@ insert_if_missing() {
 
 clear_wp_cache_artifacts() {
   local wpcontent="$1"
-  run_cmd "Removing stale cache drop-ins in $wpcontent" rm -f \
-    "$wpcontent/object-cache.php" \
-    "$wpcontent/advanced-cache.php" \
-    "$wpcontent/.litespeed_conf.dat" || return 1
-
+  run_cmd "Removing stale cache drop-ins in $wpcontent" rm -f "$wpcontent/object-cache.php" "$wpcontent/advanced-cache.php" "$wpcontent/.litespeed_conf.dat" || return 1
   if [ -d "$wpcontent/cache" ]; then
-    if [ "$DRY_RUN" = "1" ]; then
-      log "DRYRUN" "Would clear $wpcontent/cache/*"
-    else
-      find "$wpcontent/cache" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || return 1
-      log "OK" "Cleared $wpcontent/cache"
-    fi
+    if [ "$DRY_RUN" = "1" ]; then log "DRYRUN" "Would clear $wpcontent/cache/*"
+    else find "$wpcontent/cache" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || return 1; log "OK" "Cleared $wpcontent/cache"; fi
   else
     log "INFO" "Cache directory not present: $wpcontent/cache"
   fi
-
   if [ -d "$wpcontent/litespeed" ]; then
-    if [ "$DRY_RUN" = "1" ]; then
-      log "DRYRUN" "Would clear $wpcontent/litespeed/*"
-    else
-      find "$wpcontent/litespeed" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || return 1
-      log "OK" "Cleared $wpcontent/litespeed"
-    fi
+    if [ "$DRY_RUN" = "1" ]; then log "DRYRUN" "Would clear $wpcontent/litespeed/*"
+    else find "$wpcontent/litespeed" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || return 1; log "OK" "Cleared $wpcontent/litespeed"; fi
   else
     log "INFO" "LiteSpeed directory not present: $wpcontent/litespeed"
   fi
@@ -326,28 +283,20 @@ mark_failed() {
 }
 
 process_site() {
-  local site_path="$1"
-  local site_name="$2"
-  local ordinal="$3"
-  local total="$4"
+  local site_path="$1" site_name="$2" ordinal="$3" total="$4"
   local user wpconfig wpcontent
-
   CURRENT_SITE="$site_name"
   CURRENT_STEP="starting site"
   update_state
-
   echo
   log "INFO" "============================================================"
   log "INFO" "[$ordinal/$total] Starting site: $site_name"
   log "INFO" "Path: $site_path/public_html"
-
   user="$(stat -c '%U' "$site_path")"
   log "INFO" "Detected Linux owner for $site_name: $user"
-
   run_cmd "Fixing ownership for $site_name" chown -R "$user:$user" "$site_path/public_html" || { mark_failed "$site_name"; return 1; }
   run_cmd "Setting directory permissions (755) for $site_name" find "$site_path/public_html" -type d -exec chmod 755 {} \; || { mark_failed "$site_name"; return 1; }
   run_cmd "Setting file permissions (644) for $site_name" find "$site_path/public_html" -type f -exec chmod 644 {} \; || { mark_failed "$site_name"; return 1; }
-
   wpconfig="$site_path/public_html/wp-config.php"
   if [ -f "$wpconfig" ]; then
     backup_wp_config "$wpconfig" || { mark_failed "$site_name"; return 1; }
@@ -358,7 +307,6 @@ process_site() {
     SKIPPED_SITES+=("$site_name (missing wp-config.php)")
     log "WARN" "wp-config.php not found for $site_name at $wpconfig"
   fi
-
   wpcontent="$site_path/public_html/wp-content"
   if [ -d "$wpcontent" ]; then
     clear_wp_cache_artifacts "$wpcontent" || { mark_failed "$site_name"; return 1; }
@@ -366,7 +314,6 @@ process_site() {
     SKIPPED_SITES+=("$site_name (missing wp-content)")
     log "WARN" "wp-content not found for $site_name at $wpcontent"
   fi
-
   CURRENT_STEP="completed site"
   update_state
   SUCCESS_SITES+=("$site_name")
@@ -383,29 +330,13 @@ interactive_target_selection() {
   echo
   local choice=""
   read -r -p "Choose 1, 2, or 3: " choice
-
   case "$choice" in
     1) build_targets_all ;;
-    2)
-      local only=""
-      read -r -p "Enter site numbers to include (e.g. 1 2 5 or 1,2,5): " only
-      build_targets_only "$only"
-      ;;
-    3)
-      local skip=""
-      read -r -p "Enter site numbers to exclude (e.g. 1 2 5 or 1,2,5): " skip
-      build_targets_excluding "$skip"
-      ;;
-    *)
-      log "ERROR" "Invalid selection mode."
-      exit 1
-      ;;
+    2) local only=""; read -r -p "Enter site numbers to include (e.g. 1 2 5 or 1,2,5): " only; build_targets_only "$only" ;;
+    3) local skip=""; read -r -p "Enter site numbers to exclude (e.g. 1 2 5 or 1,2,5): " skip; build_targets_excluding "$skip" ;;
+    *) log "ERROR" "Invalid selection mode."; exit 1 ;;
   esac
-
-  if [ "${#TARGET_INDEXES[@]}" -eq 0 ]; then
-    log "ERROR" "No valid target sites selected."
-    exit 1
-  fi
+  [ "${#TARGET_INDEXES[@]}" -gt 0 ] || { log "ERROR" "No valid target sites selected."; exit 1; }
 }
 
 apply_cli_selection() {
@@ -413,104 +344,46 @@ apply_cli_selection() {
     log "ERROR" "Use either --sites or --exclude, not both."
     exit 1
   fi
-
-  if [ -n "$CLI_SITES" ]; then
-    build_targets_only "$CLI_SITES"
-  elif [ -n "$CLI_EXCLUDE" ]; then
-    build_targets_excluding "$CLI_EXCLUDE"
-  else
-    build_targets_all
-  fi
-
-  if [ "${#TARGET_INDEXES[@]}" -eq 0 ]; then
-    log "ERROR" "No valid target sites selected."
-    exit 1
-  fi
-}
-
-print_summary() {
-  echo
-  echo "==================== Summary ===================="
-  printf 'Successful: %d\n' "${#SUCCESS_SITES[@]}"
-  local item
-  for item in "${SUCCESS_SITES[@]:-}"; do
-    [ -n "$item" ] && printf '  + %s\n' "$item"
-  done
-
-  printf '\nSkipped: %d\n' "${#SKIPPED_SITES[@]}"
-  for item in "${SKIPPED_SITES[@]:-}"; do
-    [ -n "$item" ] && printf '  - %s\n' "$item"
-  done
-
-  printf '\nFailed: %d\n' "${#FAILED_SITES[@]}"
-  for item in "${FAILED_SITES[@]:-}"; do
-    [ -n "$item" ] && printf '  ! %s\n' "$item"
-  done
-  echo "================================================="
-  echo
+  if [ -n "$CLI_SITES" ]; then build_targets_only "$CLI_SITES"
+  elif [ -n "$CLI_EXCLUDE" ]; then build_targets_excluding "$CLI_EXCLUDE"
+  else build_targets_all; fi
+  [ "${#TARGET_INDEXES[@]}" -gt 0 ] || { log "ERROR" "No valid target sites selected."; exit 1; }
 }
 
 main() {
   parse_args "$@"
   need_root
   touch "$LOG_FILE" "$STATE_FILE"
-
   log "INFO" "Starting CyberPanel WordPress restore fix"
   log "INFO" "Log file  : $LOG_FILE"
   log "INFO" "State file: $STATE_FILE"
-
-  if [ "$DRY_RUN" = "1" ]; then
-    log "WARN" "Dry-run mode is ENABLED. No changes will be written."
-  else
-    log "INFO" "Dry-run mode is DISABLED. Changes will be applied."
-  fi
-
+  if [ "$DRY_RUN" = "1" ]; then log "WARN" "Dry-run mode is ENABLED. No changes will be written."
+  else log "INFO" "Dry-run mode is DISABLED. Changes will be applied."; fi
   scan_sites
-
   if [ -n "$DOMAIN" ]; then
     local target="/home/$DOMAIN"
-    if [ ! -d "$target/public_html" ]; then
-      log "ERROR" "Requested domain not found: $DOMAIN"
-      exit 1
-    fi
+    [ -d "$target/public_html" ] || { log "ERROR" "Requested domain not found: $DOMAIN"; exit 1; }
     TARGET_INDEXES=()
     local i
-    for ((i=0; i<${#SITE_NAMES[@]}; i++)); do
-      if [ "${SITE_NAMES[$i]}" = "$DOMAIN" ]; then
-        TARGET_INDEXES+=("$i")
-        break
-      fi
-    done
-    if [ "${#TARGET_INDEXES[@]}" -eq 0 ]; then
-      log "ERROR" "Domain found on disk but not in site list: $DOMAIN"
-      exit 1
-    fi
+    for ((i=0; i<${#SITE_NAMES[@]}; i++)); do [ "${SITE_NAMES[$i]}" = "$DOMAIN" ] && TARGET_INDEXES+=("$i") && break; done
+    [ "${#TARGET_INDEXES[@]}" -gt 0 ] || { log "ERROR" "Domain found on disk but not in site list: $DOMAIN"; exit 1; }
   elif [ -n "$CLI_SITES" ] || [ -n "$CLI_EXCLUDE" ] || [ "$AUTO_YES" = "1" ]; then
     print_sites
     apply_cli_selection
   else
     interactive_target_selection
   fi
-
   print_target_summary
   confirm_or_exit
-
-  local total="${#TARGET_INDEXES[@]}"
-  local count=0
-  local idx
-  for idx in "${TARGET_INDEXES[@]}"; do
-    count=$((count+1))
-    process_site "${SITE_PATHS[$idx]}" "${SITE_NAMES[$idx]}" "$count" "$total" || true
-  done
-
+  local total="${#TARGET_INDEXES[@]}" count=0 idx
+  for idx in "${TARGET_INDEXES[@]}"; do count=$((count+1)); process_site "${SITE_PATHS[$idx]}" "${SITE_NAMES[$idx]}" "$count" "$total" || true; done
   CURRENT_SITE="all"
   run_cmd "Restarting OpenLiteSpeed" systemctl restart lsws || FAILED_SITES+=("OpenLiteSpeed restart")
-
   CURRENT_STEP="completed"
   update_state
   log "OK" "Processing finished."
   log "INFO" "If you want to undo wp-config.php edits only, run:"
-  log "INFO" "./scripts/restore-wp-config-backups.sh"
+  log "INFO" "sudo bash ./scripts/restore-wp-config-backups.sh"
   print_summary
 }
 
